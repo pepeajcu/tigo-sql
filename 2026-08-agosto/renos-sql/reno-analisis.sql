@@ -16,6 +16,7 @@ Ayudame a estructurar el pipeline / que consultas sql / como debo de ejecutar la
 
 **/
 
+/* Consulta con "contentcard* -- Averiguar que "envio es contentcard" */
 select 
 	instance_tp, 
 	event_tp , 
@@ -26,33 +27,16 @@ select
 	canvas_step_nm , 
 	event_id 
 from 
-	gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_contentcard_fct 
--- where CAST(created_at_ts as timestamp)
+	gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_contentcard_fct
+    -- where CAST(created_at_ts as timestamp)
 	-- between timestamp '2026-05-01 00:00:00'
 	-- and timestamp '2026-07-28 23:59:59'
 	-- and d_instance_tp = 'gt'
-	where date_send_dt between date '2026-05-01' and date '2026-07-28'
- and instance_tp = 'gt'
+where date_send_dt between date '2026-05-01' and date '2026-07-28'
+and instance_tp = 'gt'  
  
  
- select 
-	instance_tp, 
-	date_send_dt , 
-	campaign_id , 
-	external_user_id , 
-	canvas_step_id , 
-	canvas_step_nm , 
-	event_id 
-from 
-	gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_contentcard_fct 
--- where CAST(created_at_ts as timestamp)
-	-- between timestamp '2026-05-01 00:00:00'
-	-- and timestamp '2026-07-28 23:59:59'
-	-- and d_instance_tp = 'gt'
-	where date_send_dt between date '2026-05-01' and date '2026-07-28'
- and instance_tp = 'gt'
- 
- 
+/* Consulta: Tablas por Tipo de Envíos*/
 select 
 	instance_tp,
 	date_send_dt,
@@ -60,7 +44,7 @@ select
 	external_user_id ,
 	canvas_step_id ,
 	canvas_step_nm ,
-	event_id ,A
+	event_id ,
 from
 	gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_inapp_fct
 limit 10
@@ -77,7 +61,7 @@ from
 	gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_webhook_fct
 limit 10
 
-
+/* Consulta: Campañas de Braze*/
 select 
 	campaign_id_key,
 	campaign_nm ,
