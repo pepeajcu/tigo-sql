@@ -15,3 +15,80 @@ Lo que deseo saber es un reporte... donde categorizar por día (fecha) del envio
 Ayudame a estructurar el pipeline / que consultas sql / como debo de ejecutar las consultas para poder obtener el reporte..  todo debe de estar optimizado para consultas de base de datos de millones (alto volumen de datos) de registros. btw: dime si hace falta algo para lograrlo.
 
 **/
+
+select 
+	instance_tp, 
+	event_tp , 
+	date_send_dt , 
+	campaign_id , 
+	external_user_id , 
+	canvas_step_id , 
+	canvas_step_nm , 
+	event_id 
+from 
+	gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_contentcard_fct 
+-- where CAST(created_at_ts as timestamp)
+	-- between timestamp '2026-05-01 00:00:00'
+	-- and timestamp '2026-07-28 23:59:59'
+	-- and d_instance_tp = 'gt'
+	where date_send_dt between date '2026-05-01' and date '2026-07-28'
+ and instance_tp = 'gt'
+ 
+ 
+ select 
+	instance_tp, 
+	date_send_dt , 
+	campaign_id , 
+	external_user_id , 
+	canvas_step_id , 
+	canvas_step_nm , 
+	event_id 
+from 
+	gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_contentcard_fct 
+-- where CAST(created_at_ts as timestamp)
+	-- between timestamp '2026-05-01 00:00:00'
+	-- and timestamp '2026-07-28 23:59:59'
+	-- and d_instance_tp = 'gt'
+	where date_send_dt between date '2026-05-01' and date '2026-07-28'
+ and instance_tp = 'gt'
+ 
+ 
+select 
+	instance_tp,
+	date_send_dt,
+	campaign_id , 
+	external_user_id ,
+	canvas_step_id ,
+	canvas_step_nm ,
+	event_id ,A
+from
+	gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_inapp_fct
+limit 10
+
+select 
+	*
+from
+	gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct
+limit 10
+
+select 
+	*
+from
+	gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_webhook_fct
+limit 10
+
+
+select 
+	campaign_id_key,
+	campaign_nm ,
+	md5_key ,
+	created_at_ts ,
+	braze_campaign_tp ,
+	d_instance_tp
+from 
+	gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_campaign_dim
+where CAST(created_at_ts as timestamp)
+	between timestamp '2026-05-01 00:00:00'
+	and timestamp '2026-07-28 23:59:59'
+	and d_instance_tp = 'gt'
+	limit 100
