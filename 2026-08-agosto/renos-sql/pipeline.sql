@@ -63,7 +63,7 @@ JOIN perfil p ON p.external_id = e.external_user_id
 GROUP BY 1, 2, 3, 4, 5, 6, 7;
 
 
-/* Renovaciones en Horus (30 min) */
+/* Renovaciones en Horus (30 min) / Propuesta */
 SELECT DISTINCT
     msisdn_dd AS msisdn,
     evnt_dt   AS fecha_conv
@@ -75,7 +75,18 @@ WHERE fct_dt IN (DATE '2026-06-01', DATE '2026-07-01', DATE '2026-08-01')
   AND sb_bs_un = 'MOBILE'
   AND bllbl_cd = 'FACTURABLE';
 
-
+/* Consulta Original */
+select 
+sls.fct_dt mes, 
+sls.evnt_dt fecha, 
+sls.evnt_typ, 
+sls.msisdn_dd numero, 
+sls.ar_sscrbr_dd anexo
+from smy.dm_bi_sls_sttstcs_mnth sls
+where sls.fct_dt = date '2026-07-01'
+and sls.evnt_typ in ('RENOVACION')
+and case when sls.evnt_typ = 'RENOVACION' then sls.sb_bs_un else sls.mv_bs_un end = 'MOBILE'
+and sls.bllbl_cd = 'FACTURABLE'
 
 
   WITH perfiles AS (
