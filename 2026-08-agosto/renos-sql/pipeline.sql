@@ -88,12 +88,8 @@ and case when sls.evnt_typ = 'RENOVACION' then sls.sb_bs_un else sls.mv_bs_un en
 and sls.bllbl_cd = 'FACTURABLE'
 
 
-<<<<<<< HEAD
 
 WITH perfiles AS (
-=======
-  WITH perfiles AS (
->>>>>>> d67579131497c3040d76f4501a67b74be1de1584
     SELECT DISTINCT
         external_id,
         msisdn
