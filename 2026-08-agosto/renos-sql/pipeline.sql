@@ -9,9 +9,10 @@ channel_tp
 FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_campaign_dim
 WHERE d_instance_tp = 'gt'
   AND campaign_id_key IN (
-      '3151c9f0-6602-4798-8d66-8bd251e5b2ad',
-      '6cb29791-72dc-4231-afba-96a024002e3e'
+      '0342f305-7e46-4b9a-bff0-4d075093a1f5',
+      '59f07812-1cd1-4a86-997f-192992a83ec1'
   );
+
 
 /* Validación de snapshots de perfil */
 SELECT fct_dt, count(*) AS filas
@@ -19,7 +20,7 @@ FROM
 gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
 WHERE cntry_cd = 'gt'
   AND fct_dt IN ('2026-06-01', '2026-07-01', '2026-07-31')
-GROUP BY 1;
+GROUP BY 1;  
 
 /* V2 — Medir antes de exportar (dentro de este mismo bloque, no es paso aparte) */
 SELECT count(*) AS envios_con_msisdn,
