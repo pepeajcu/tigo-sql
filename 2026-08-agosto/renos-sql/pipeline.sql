@@ -1,4 +1,4 @@
-/*TASK 0*/
+/*TASK 0 - DONE*/ 
 
 SELECT 
 campaign_id_key, 
@@ -13,8 +13,7 @@ WHERE d_instance_tp = 'gt'
       '59f07812-1cd1-4a86-997f-192992a83ec1'
   );
 
-
-/* Validación de snapshots de perfil */
+/* Validación de snapshots de perfil - DONE*/
 SELECT fct_dt, count(*) AS filas
 FROM 
 gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
@@ -89,7 +88,12 @@ and case when sls.evnt_typ = 'RENOVACION' then sls.sb_bs_un else sls.mv_bs_un en
 and sls.bllbl_cd = 'FACTURABLE'
 
 
+<<<<<<< HEAD
+
+WITH perfiles AS (
+=======
   WITH perfiles AS (
+>>>>>>> d67579131497c3040d76f4501a67b74be1de1584
     SELECT DISTINCT
         external_id,
         msisdn
@@ -116,58 +120,6 @@ SELECT
 FROM perfiles p
 JOIN envios e
     ON e.external_user_id = p.external_id
-GROUP BY p.msisdn
-HAVING count(DISTINCT p.external_id) > 1
-ORDER BY external_ids_con_envio DESC;
-
-WITH perfiles AS (
-    SELECT DISTINCT
-        external_id,
-        msisdn
-    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
-    WHERE fct_dt IN ('2026-06-01', '2026-07-01', '2026-07-31')
-      AND cntry_cd = 'gt'
-      AND external_id IS NOT NULL
-      AND msisdn IS NOT NULL
-),
-
-envios AS (
-    SELECT DISTINCT
-        external_user_id,
-        'push' AS canal
-    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct
-    WHERE dt >= DATE '2026-05-22'
-      AND dt < DATE '2026-08-01'
-      AND instance_tp = 'gt'
-      AND campaign_id IN (
-          'ID_1',
-          'ID_2'
-      )
-
-    UNION ALL
-
-    SELECT DISTINCT
-        external_user_id,
-        lower(step_name) AS canal
-    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_webhook_fct
-    WHERE dt >= DATE '2026-05-22'
-      AND dt < DATE '2026-08-01'
-      AND instance_tp = 'gt'
-      AND campaign_id IN (
-          'ID_1',
-          'ID_2'
-      )
-      AND step_name IN ('SMS', 'WhatsApp')
-)
-
-SELECT
-    p.msisdn,
-    count(DISTINCT p.external_id) AS external_ids_con_envio,
-    array_agg(DISTINCT p.external_id) AS external_ids,
-    array_agg(DISTINCT e.canal) AS canales
-FROM envios e
-JOIN perfiles p
-    ON p.external_id = e.external_user_id
 GROUP BY p.msisdn
 HAVING count(DISTINCT p.external_id) > 1
 ORDER BY external_ids_con_envio DESC;
