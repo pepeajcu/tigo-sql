@@ -74,3 +74,37 @@ WHERE fct_dt IN (DATE '2026-06-01', DATE '2026-07-01', DATE '2026-08-01')
   AND evnt_typ = 'RENOVACION'
   AND sb_bs_un = 'MOBILE'
   AND bllbl_cd = 'FACTURABLE';
+
+
+
+
+  WITH perfiles AS (
+    SELECT DISTINCT
+        external_id,
+        msisdn
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
+    WHERE fct_dt IN ('2026-06-01', '2026-07-01', '2026-07-31')
+      AND cntry_cd = 'gt'
+      AND external_id IS NOT NULL
+      AND msisdn IS NOT NULL
+),
+envios AS (
+    SELECT DISTINCT external_user_id
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct
+    WHERE dt >= DATE '2026-05-22'
+      AND dt < DATE '2026-08-01'
+      AND instance_tp = 'gt'
+      AND campaign_id IN (
+        '0342f305-7e46-4b9a-bff0-4d075093a1f5',
+      '59f07812-1cd1-4a86-997f-192992a83ec1'
+      )
+)
+SELECT
+    p.msisdn,
+    count(DISTINCT p.external_id) AS external_ids_con_envio
+FROM perfiles p
+JOIN envios e
+    ON e.external_user_id = p.external_id
+GROUP BY p.msisdn
+HAVING count(DISTINCT p.external_id) > 1
+ORDER BY external_ids_con_envio DESC;
