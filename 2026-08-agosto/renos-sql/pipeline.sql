@@ -254,11 +254,21 @@ ids AS (
       AND trim(lower(campaign_id)) IN (
           trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5')),
           trim(lower('59f07812-1cd1-4a86-997f-192992a83ec1')))
+),
+cruce AS (
+    SELECT i.canal, i.external_user_id, p.msisdn
+    FROM ids i
+    LEFT JOIN perfil p ON p.external_id = i.external_user_id
+),
+enumerado AS (
+    SELECT *,
+           row_number() OVER (PARTITION BY canal ORDER BY msisdn NULLS LAST) AS rn
+    FROM cruce
 )
 SELECT
-    i.canal,
-    i.external_user_id,
-    p.msisdn
-FROM ids i
-LEFT JOIN perfil p ON p.external_id = i.external_user_id
-ORDER BY i.canal, p.msisdn NULLS LAST;
+    canal,
+    array_agg(external_user_id) AS external_user_ids,
+    array_agg(msisdn) AS msisdns
+FROM enumerado
+WHERE rn <= 50
+GROUP BY canal;
