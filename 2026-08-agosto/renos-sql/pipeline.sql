@@ -314,4 +314,6 @@ SELECT
     array_agg(external_user_id) FILTER (WHERE rn <= 50) AS ejemplo_external_user_ids,
     array_agg(msisdn) FILTER (WHERE rn <= 50)           AS ejemplo_msisdns
 FROM enumerado
-GROUP BY canal;
+GROUP BY canal; 
+
+
