@@ -225,3 +225,40 @@ push AS (
 SELECT count(*) AS filas
 FROM push e
 JOIN perfil p ON p.external_id = e.external_user_id;
+
+
+/*++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+
+WITH perfil AS (
+    SELECT external_id, arbitrary(msisdn) AS msisdn
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
+    WHERE fct_dt IN ('2026-06-04', '2026-06-12', '2026-07-02')
+      AND cntry_cd = 'gt'
+    GROUP BY external_id
+),
+ids AS (
+    SELECT DISTINCT lower(step_name) AS canal, external_user_id
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_webhook_fct
+    WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10'
+      AND instance_tp = 'gt'
+      AND trim(lower(step_name)) IN ('sms', 'whatsapp')
+      AND trim(lower(campaign_id)) IN (
+          trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5')),
+          trim(lower('59f07812-1cd1-4a86-997f-192992a83ec1')))
+
+    UNION ALL
+    SELECT DISTINCT 'push' AS canal, external_user_id
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct
+    WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10'
+      AND instance_tp = 'gt'
+      AND trim(lower(campaign_id)) IN (
+          trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5')),
+          trim(lower('59f07812-1cd1-4a86-997f-192992a83ec1')))
+)
+SELECT
+    i.canal,
+    i.external_user_id,
+    p.msisdn
+FROM ids i
+LEFT JOIN perfil p ON p.external_id = i.external_user_id
+ORDER BY i.canal, i.msisdn NULLS LAST;
