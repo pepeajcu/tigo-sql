@@ -148,15 +148,18 @@ envios AS (
     WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10'
       AND instance_tp = 'gt'
       AND trim(lower(step_name)) IN ('sms', 'whatsapp')
-      AND trim(lower(campaign_id)) IN trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5',
-      '59f07812-1cd1-4a86-997f-192992a83ec1'))
+      AND trim(lower(campaign_id)) IN (
+    trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5')),
+    trim(lower('59f07812-1cd1-4a86-997f-192992a83ec1')))
+
     UNION all
     SELECT 'push', external_user_id, date_send_dt,
            campaign_id, canvas_step_nm, canvas_variation_nm
     FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct
     WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10' AND instance_tp = 'gt'
-      AND trim(lower(campaign_id)) IN trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5',
-      '59f07812-1cd1-4a86-997f-192992a83ec1'))
+      AND trim(lower(campaign_id)) IN (
+    trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5')),
+    trim(lower('59f07812-1cd1-4a86-997f-192992a83ec1')))
 )
 SELECT
     p.msisdn AS msisdn, e.external_user_id AS cuenta_id, e.fecha_envio,
