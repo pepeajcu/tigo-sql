@@ -88,6 +88,17 @@ and case when sls.evnt_typ = 'RENOVACION' then sls.sb_bs_un else sls.mv_bs_un en
 and sls.bllbl_cd = 'FACTURABLE'
 
 
+SELECT DISTINCT step_name, length(step_name) AS largo
+FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_webhook_fct
+WHERE dt >= DATE '2026-05-22' AND dt < DATE '2026-08-01'
+  AND instance_tp = 'gt'
+  AND campaign_id = '0342f305-7e46-4b9a-bff0-4d075093a1f5';
+
+  AND trim(lower(step_name)) IN ('sms', 'whatsapp')
+
+  AND lower(trim(campaign_id)) = lower(trim('0342f305-7e46-4b9a-bff0-4d075093a1f5'))
+
+/*+++++++++++++++++++++++++++++*/
 
 WITH perfiles AS (
     SELECT DISTINCT
