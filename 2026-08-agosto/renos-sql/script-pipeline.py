@@ -6,7 +6,7 @@ Entrada:
                      canvas_step_nm, canvas_variation_nm
   renovaciones.csv   msisdn, fecha_conv
 
-Uso:  pip install duckdb && python atribucion.py
+Uso:  pip install duckdb  && python atribucion.py
 """
 
 import duckdb
