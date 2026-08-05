@@ -192,3 +192,45 @@ WITH envios AS (
 SELECT canal, count(*) AS filas, count(DISTINCT external_user_id) AS usuarios
 FROM envios
 GROUP BY 1;
+
+Bien, eso descarta el UNION ALL — push sí trae datos cuando lo miras aislado. El problema está confirmado en el JOIN con perfil. Sigamos con el Paso 2:
+
+sql
+SELECT external_user_id, length(external_user_id) AS largo
+FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct
+WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10' AND instance_tp = 'gt'
+  AND trim(lower(campaign_id)) IN (
+      trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5')),
+      trim(lower('59f07812-1cd1-4a86-997f-192992a83ec1')))
+LIMIT 10;
+
+Y en paralelo, el mismo chequeo del lado de perfil:
+
+sql
+SELECT external_id, length(external_id) AS largo
+FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
+WHERE fct_dt = '2026-07-02' AND cntry_cd = 'gt'
+LIMIT 10;
+
+Compara los dos resultados uno junto al otro:
+
+¿Mismo largo (longitud de caracteres)? Si push da consistentemente más o menos caracteres que perfil, hay espacios o un formato distinto (UUID con guiones vs sin guiones, por ejemplo).
+¿Mismo patrón visual? Mayúsculas/minúsculas, guiones en el mismo lugar, mismo tipo de valor (¿parece un UUID en ambos, o push trae algo como un device_id que no se parece a un external_id?).
+
+Si el formato se ve idéntico a simple vista pero aun así no cruza, agrega esto para descartar espacios invisibles que no se ven al copiar/pegar:
+
+sql
+SELECT external_user_id = trim(external_user_id) AS sin_espacios_extra
+FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct
+WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10' AND instance_tp = 'gt'
+  AND trim(lower(campaign_id)) IN (
+      trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5')),
+      trim(lower('59f07812-1cd1-4a86-997f-192992a83ec1')))
+LIMIT 20;
+
+Si sale false en varias filas, ahí está tu causa — y la solución es forzar trim() en ambos lados del JOIN:
+
+sql
+JOIN perfil p ON p.external_id = trim(e.external_user_id)
+
+Pega lo que te devuelvan los dos primeros queries (unas filas de ejemplo) y te confirmo qué está pasando.
