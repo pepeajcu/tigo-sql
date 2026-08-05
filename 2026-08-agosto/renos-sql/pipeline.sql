@@ -261,4 +261,4 @@ SELECT
     p.msisdn
 FROM ids i
 LEFT JOIN perfil p ON p.external_id = i.external_user_id
-ORDER BY i.canal, i.msisdn NULLS LAST;
+ORDER BY i.canal, p.msisdn NULLS LAST;
