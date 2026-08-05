@@ -272,3 +272,46 @@ SELECT
 FROM enumerado
 WHERE rn <= 50
 GROUP BY canal;
+
+
+/* PRUEBAS */
+
+WITH perfil AS (
+    SELECT external_id, arbitrary(msisdn) AS msisdn
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
+    WHERE fct_dt IN ('2026-06-04', '2026-06-12', '2026-07-02')
+      AND cntry_cd = 'gt'
+    GROUP BY external_id
+),
+ids AS (
+    SELECT DISTINCT lower(step_name) AS canal, external_user_id
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_webhook_fct
+    WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10'
+      AND instance_tp = 'gt'
+      AND trim(lower(step_name)) IN ('sms', 'whatsapp')
+
+    UNION ALL
+    SELECT DISTINCT 'push' AS canal, external_user_id
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct
+    WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10'
+      AND instance_tp = 'gt'
+),
+cruce AS (
+    SELECT i.canal, i.external_user_id, p.msisdn
+    FROM ids i
+    LEFT JOIN perfil p ON p.external_id = i.external_user_id
+),
+enumerado AS (
+    SELECT *,
+           row_number() OVER (PARTITION BY canal ORDER BY msisdn NULLS LAST) AS rn
+    FROM cruce
+)
+SELECT
+    canal,
+    count(*)                                    AS total_ids,
+    count(*) FILTER (WHERE msisdn IS NOT NULL)   AS con_msisdn,
+    count(*) FILTER (WHERE msisdn IS NULL)       AS sin_msisdn,
+    array_agg(external_user_id) FILTER (WHERE rn <= 50) AS ejemplo_external_user_ids,
+    array_agg(msisdn) FILTER (WHERE rn <= 50)           AS ejemplo_msisdns
+FROM enumerado
+GROUP BY canal;
