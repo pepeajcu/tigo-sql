@@ -234,3 +234,30 @@ sql
 JOIN perfil p ON p.external_id = trim(e.external_user_id)
 
 Pega lo que te devuelvan los dos primeros queries (unas filas de ejemplo) y te confirmo qué está pasando.
+
+
+/**/
+
+WITH push_ids AS (
+    SELECT DISTINCT external_user_id
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct
+    WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10'
+      AND instance_tp = 'gt'
+      AND trim(lower(campaign_id)) IN (
+          trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5')),
+          trim(lower('59f07812-1cd1-4a86-997f-192992a83ec1')))
+),
+perfil_ids AS (
+    SELECT DISTINCT external_id
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
+    WHERE fct_dt IN ('2026-06-04', '2026-06-12', '2026-07-02')
+      AND cntry_cd = 'gt'
+      AND external_id IS NOT NULL
+)
+SELECT
+    count(*) AS total_push_ids,
+    count(*) FILTER (WHERE p.external_id IS NOT NULL) AS match_exacto,
+    count(*) FILTER (WHERE p2.external_id IS NOT NULL) AS match_sin_mayusculas
+FROM push_ids e
+LEFT JOIN perfil_ids p  ON p.external_id = e.external_user_id
+LEFT JOIN perfil_ids p2 ON lower(p2.external_id) = lower(e.external_user_id);
