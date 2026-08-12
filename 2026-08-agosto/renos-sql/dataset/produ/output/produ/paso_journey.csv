@@ -1,0 +1,8 @@
+paso_idx,canvas_step_nm,canal,primera_fecha,dia_rel,msisdn_impactados,msisdn_convertidos,tasa_pct,dias_prom
+1,SMS AWA,sms,2026-07-22,0,1346,19,1.41,0.89
+2,WSP AWA,whatsapp,2026-07-25,3,1346,28,2.08,1.46
+3,SMS CON,sms,2026-07-29,7,1346,31,2.3,1.45
+4,WSP CON,whatsapp,2026-08-01,10,666,11,1.65,1.55
+5,SMS CON 3,sms,2026-08-03,12,612,13,2.12,1.38
+6,SMS CON 4,sms,2026-08-03,12,571,21,3.68,2.71
+7,WSP CON 1,whatsapp,2026-08-07,16,680,5,0.74,0.8

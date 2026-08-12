@@ -1,0 +1,3 @@
+ruta,ruta_key,msisdn_impactados,msisdn_convertidos,tasa_pct,dias_prom
+Ruta A,SMS AWA > WSP AWA > SMS CON > SMS CON 3 > WSP CON 1 > SMS DES > SMS DES 2,240,38,15.83,2.11
+Ruta B,SMS AWA > WSP AWA > SMS CON > WSP CON > SMS CON 4 > SMS DES > SMS DES 2,191,17,8.9,2.29
