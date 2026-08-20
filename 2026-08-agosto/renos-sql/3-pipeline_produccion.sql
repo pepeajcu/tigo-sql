@@ -63,6 +63,8 @@ and case when sls.evnt_typ = 'RENOVACION' then sls.sb_bs_un else sls.mv_bs_un en
 and sls.bllbl_cd = 'FACTURABLE'
 
 
+
+
 WITH perfil AS (
     SELECT external_id, arbitrary(msisdn) AS msisdn
     FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
