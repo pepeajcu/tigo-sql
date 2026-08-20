@@ -302,3 +302,26 @@ FROM push_ids e
 LEFT JOIN gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct pf
   ON pf.braze_id = e.external_user_id
  AND pf.fct_dt = '2026-07-02' AND pf.cntry_cd = 'gt';
+
+
+ WITH perfil AS (
+    SELECT braze_tigo_id, arbitrary(msisdn) AS msisdn
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
+    WHERE fct_dt IN ('2026-06-04', '2026-06-12', '2026-07-02')
+      AND cntry_cd = 'gt'
+      AND braze_tigo_id IS NOT NULL
+    GROUP BY braze_tigo_id
+),
+push_ids AS (
+    SELECT DISTINCT external_user_id
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct
+    WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10'
+      AND instance_tp = 'gt'
+      AND trim(lower(campaign_id)) = trim(lower('59f07812-1cd1-4a86-997f-192992a83ec1'))
+)
+SELECT
+    count(*) AS total_push_ids,
+    count(*) FILTER (WHERE p.braze_tigo_id IS NOT NULL) AS match_por_braze_tigo_id,
+    count(*) FILTER (WHERE p.msisdn IS NOT NULL)         AS con_msisdn
+FROM push_ids e
+LEFT JOIN perfil p ON p.braze_tigo_id = e.external_user_id;
