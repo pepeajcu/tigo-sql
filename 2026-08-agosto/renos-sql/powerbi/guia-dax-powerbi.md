@@ -156,6 +156,17 @@ CSV con el diálogo de archivo, la ruta absoluta queda embebida en `File.Content
 carpeta `powerbi/` de máquina, solo hay que corregir esas 4 rutas (mismo problema que resuelve
 `carpeta()` en el script de Python, líneas 40-43).
 
+⚠️ **Gotcha real**: al cargar el CSV desde la interfaz (Nuevo origen → Texto/CSV → Transformar
+datos), Power BI **agrega automáticamente** uno o dos pasos `Table.TransformColumnTypes(...)`
+después de `Table.PromoteHeaders(...)`, adivinando tipos (típicamente convierte `msisdn` a número y
+`fecha_envio`/`fecha_conv` a `datetime`/`datetimezone`). **Bórralos.** `fx_Msisdn` y `fx_Fecha`
+esperan **texto crudo**, igual que `all_varchar = true` en el script de Python (línea 123-130) —
+si `fecha_envio` ya llegó convertida a `datetime` antes de tu función, `Text.From` la va a mostrar
+en formato local (no ISO), y los primeros 10 caracteres que recorta `fx_Fecha` ya no van a ser la
+fecha correcta, sin que Power Query marque ningún error. El paso `Limpio = fx_LimpiarEnvios(...)`
+(o `fx_LimpiarReno`) debe llamarse **inmediatamente después** de `Table.PromoteHeaders`, sin ningún
+paso de cambio de tipo en medio.
+
 Y dos consultas finales que se cargan al modelo:
 
 ```m
@@ -280,12 +291,10 @@ Power Query lo optimizará razonablemente. Si se vuelve lento, avísame y lo ree
 
 ## 5. Power Query — orden del journey (`paso_idx`, `dia_rel`)
 
-Equivalente a `{p}_orden` (líneas 257-262) + el `dia_cero` de cada dataset (línea 205). Se calcula
-una vez y se **fusiona como columnas** directamente en `Envios` y en `Atribucion` (así ninguna de
-las dos necesita una tabla `Pasos` relacionada aparte).
+Equivalente a `{p}_orden` (líneas 257-262) + el `dia_cero` de cada dataset (línea 205).
 
 ```m
-// Pasos  (consulta intermedia, no hace falta cargarla al modelo)
+// Pasos  (SÍ se carga al modelo — ver nota de relación circular abajo)
 let
     DiaCero   = Table.Group(Envios, {"Dataset"}, {{"dia_cero", each List.Min([fecha_envio]), type date}}),
     Agrupado  = Table.Group(Envios, {"Dataset", "canvas_step_nm"}, {{"primera_fecha", each List.Min([fecha_envio]), type date}}),
@@ -296,14 +305,36 @@ let
                        Table.Sort(_, {{"primera_fecha", Order.Ascending}, {"canvas_step_nm", Order.Ascending}}),
                        "paso_idx", 1, 1), type table}}),
     Expand2   = Table.ExpandTableColumn(ConIdx, "Filas", {"canvas_step_nm", "primera_fecha", "dia_cero", "paso_idx"}),
-    ConRel    = Table.AddColumn(Expand2, "dia_rel", each Duration.Days([primera_fecha] - [dia_cero]), Int64.Type)
+    ConRel    = Table.AddColumn(Expand2, "dia_rel", each Duration.Days([primera_fecha] - [dia_cero]), Int64.Type),
+    ConClave  = Table.AddColumn(ConRel, "ClavePaso", each [Dataset] & "|" & [canvas_step_nm], type text)
 in
-    ConRel
+    ConClave
 ```
 
-Luego, en la consulta `Envios` (y en `Atribucion`), añade un paso final `Table.NestedJoin` contra
-`Pasos` por `{"Dataset","canvas_step_nm"}`, expandiendo solo `paso_idx` y `dia_rel`. Así ambas
-tablas quedan con esas dos columnas listas para usar como eje sin relaciones adicionales.
+⚠️ **`Pasos` depende de `Envios`** (usa `Table.Group(Envios, ...)`). Por eso **no se puede fusionar
+`Pasos` de vuelta dentro de la propia consulta `Envios`** con un merge normal — crearía una
+dependencia circular (`Envios` necesitaría a `Pasos`, que necesita a `Envios`) y Power Query no te
+va a dejar seleccionarla en el diálogo de "Combinar consultas" (sí aparece habilitada en "Combinar
+como nueva", porque ahí crea una tercera consulta separada — pero eso no sirve para este caso).
+
+La solución es **relación en el modelo, no merge**, solo para `Envios`:
+
+1. En `Envios`, agrega — como paso propio, sin referenciar `Pasos` — la misma llave compuesta:
+   ```m
+   ConClave = Table.AddColumn(Base, "ClavePaso", each [Dataset] & "|" & [canvas_step_nm], type text)
+   ```
+2. Habilita la carga de `Pasos` (dejó de ser una consulta intermedia).
+3. En la vista de Modelo, crea la relación `Pasos[ClavePaso]` (1) → `Envios[ClavePaso]` (muchos).
+4. En los visuales que necesiten `paso_idx`/`dia_rel` para el eje, úsalos **desde `Pasos`**
+   (`Pasos[paso_idx]`, `Pasos[dia_rel]`) — la relación filtra `Envios` automáticamente.
+
+Para `Atribucion` **sí funciona el merge directo** (no depende de `Pasos`, no hay ciclo): añade un
+paso final `Table.NestedJoin` contra `Pasos` por `{"Dataset","canvas_step_nm"}`, expandiendo
+`paso_idx`, `dia_rel` y `dia_cero` (este último lo necesitas para el siguiente cálculo, `dia_rel_conv`,
+sección 11). Con `dia_cero` ya en la tabla, agrega un paso más:
+```m
+ConDiaRelConv = Table.AddColumn(<paso del expand>, "dia_rel_conv", each Duration.Days([fecha_conv] - [dia_cero]), Int64.Type)
+```
 
 ---
 
@@ -333,10 +364,13 @@ las tres tablas de hechos a la vez.
 
 ```dax
 Calendario =
-VAR MinFecha =
-    MINX ( UNION ( VALUES ( Envios[fecha_envio] ), VALUES ( Renovaciones[fecha_conv] ) ), [Value] )
-VAR MaxFecha =
-    MAXX ( UNION ( VALUES ( Envios[fecha_envio] ), VALUES ( Renovaciones[fecha_conv] ) ), [Value] )
+VAR Fechas =
+    UNION (
+        SELECTCOLUMNS ( Envios, "Fecha", Envios[fecha_envio] ),
+        SELECTCOLUMNS ( Renovaciones, "Fecha", Renovaciones[fecha_conv] )
+    )
+VAR MinFecha = MINX ( Fechas, [Fecha] )
+VAR MaxFecha = MAXX ( Fechas, [Fecha] )
 RETURN
 ADDCOLUMNS (
     CALENDAR ( MinFecha, MaxFecha ),
@@ -448,10 +482,11 @@ Tasa por Canal Envio = DIVIDE ( [Convertidos por Canal Envio], [Impactados] )
 ```
 
 **Visual sugerido — "Tasa de conversión por paso" (línea 510-524):** gráfico de líneas, eje X =
-`Envios[paso_idx]`, valor = `[Tasa por Paso]`, leyenda = `Dim_Dataset[DatasetLabel]`.
+`Pasos[paso_idx]` (no `Envios[paso_idx]` — esa columna vive en `Pasos`, relacionada por `ClavePaso`,
+ver sección 5), valor = `[Tasa por Paso]`, leyenda = `Dim_Dataset[DatasetLabel]`.
 
 **Visual sugerido — "Línea de tiempo del journey" (línea 484-508):** gráfico de dispersión, eje X =
-`Envios[dia_rel]`, eje Y = `Dim_Dataset[DatasetLabel]`, tamaño de burbuja = `[Convertidos por Paso]`.
+`Pasos[dia_rel]`, eje Y = `Dim_Dataset[DatasetLabel]`, tamaño de burbuja = `[Convertidos por Paso]`.
 
 ---
 

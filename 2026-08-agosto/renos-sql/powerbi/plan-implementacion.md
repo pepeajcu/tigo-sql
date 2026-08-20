@@ -20,13 +20,13 @@ Marca cada casilla según avances (`- [ ]` → `- [x]`).
 
 ---
 
-## Fase 1 — Funciones de limpieza (guía, sección 1)
+## Fase 1 — Funciones de limpieza (guía, sección 1) ✅ 2026-08-18
 
-- [ ] Crear consulta en blanco `fx_Msisdn`, pegar el código, verificar que Power BI la reconoce
+- [x] Crear consulta en blanco `fx_Msisdn`, pegar el código, verificar que Power BI la reconoce
       como función (ícono de función en el panel de consultas).
-- [ ] Crear `fx_Fecha` igual.
-- [ ] Crear `fx_LimpiarEnvios` y `fx_LimpiarReno`.
-- [ ] Probar `fx_LimpiarEnvios` a mano con una tabla chica de ejemplo (Introducir datos con 2-3
+- [x] Crear `fx_Fecha` igual.
+- [x] Crear `fx_LimpiarEnvios` y `fx_LimpiarReno`.
+- [x] Probar `fx_LimpiarEnvios` a mano con una tabla chica de ejemplo (Introducir datos con 2-3
       filas) para confirmar que limpia msisdn a 8 dígitos y fecha a `date` antes de usarla contra
       un CSV real.
 
@@ -34,22 +34,27 @@ Marca cada casilla según avances (`- [ ]` → `- [x]`).
 
 ---
 
-## Fase 2 — Carga y unificación (guía, sección 2)
+## Fase 2 — Carga y unificación (guía, sección 2) ✅ 2026-08-18
 
-- [ ] Cargar `powerbi/produ/envios_produ.csv` → consulta `Envios_Produ` → aplicar
+- [x] Cargar `powerbi/produ/envios_produ.csv` → consulta `Envios_Produ` → aplicar
       `fx_LimpiarEnvios(..., "Produccion")`.
-- [ ] Cargar `powerbi/pruebas/envios_pruebas.csv` → `Envios_Pruebas` → `fx_LimpiarEnvios(..., "Pruebas")`.
-- [ ] Cargar `powerbi/produ/reno_produ.csv` → `Reno_Produ` → `fx_LimpiarReno(..., "Produccion")`.
-- [ ] Cargar `powerbi/pruebas/reno_pruebas.csv` → `Reno_Pruebas` → `fx_LimpiarReno(..., "Pruebas")`.
-- [ ] Crear consultas finales `Envios` = `Table.Combine({Envios_Produ, Envios_Pruebas})` y
+- [x] Cargar `powerbi/pruebas/envios_pruebas.csv` → `Envios_Pruebas` → `fx_LimpiarEnvios(..., "Pruebas")`.
+- [x] Cargar `powerbi/produ/reno_produ.csv` → `Reno_Produ` → `fx_LimpiarReno(..., "Produccion")`.
+- [x] Cargar `powerbi/pruebas/reno_pruebas.csv` → `Reno_Pruebas` → `fx_LimpiarReno(..., "Pruebas")`.
+- [x] Crear consultas finales `Envios` = `Table.Combine({Envios_Produ, Envios_Pruebas})` y
       `Renovaciones` = `Table.Combine({Reno_Produ, Reno_Pruebas})`.
-- [ ] Deshabilitar carga de las 4 consultas intermedias (`Envios_Produ`, `Envios_Pruebas`,
+- [x] Deshabilitar carga de las 4 consultas intermedias (`Envios_Produ`, `Envios_Pruebas`,
       `Reno_Produ`, `Reno_Pruebas`) — solo `Envios` y `Renovaciones` se cargan al modelo.
 
-**Checkpoint:** cierra y aplica. En la vista de tabla, cuenta filas de `Envios` y `Renovaciones` por
-`Dataset` (usa una tabla visual rápida con `COUNTROWS` agrupado). Compara contra lo que imprime el
-script de Python al correr (`{ds['nombre']}` con conteos de `rango_e[2]` / `rango_r[2]`, líneas
-191-194). Deben coincidir — si no, algo se perdió en el filtro de msisdn/fecha.
+**Checkpoint — validado:** conteo por `Dataset` en Power BI vs. limpieza replicada de forma
+independiente en Python contra los mismos 4 CSV — coincide exacto:
+
+| | Power BI | Validación independiente |
+|---|---|---|
+| Envíos × Producción | 6 567 | 6 567 ✅ |
+| Envíos × Pruebas | 3 017 | 3 017 ✅ |
+| Renovaciones × Producción | 7 378 | 7 378 ✅ |
+| Renovaciones × Pruebas | 11 761 | 11 761 ✅ |
 
 ---
 
@@ -65,46 +70,53 @@ script de Python al correr (`{ds['nombre']}` con conteos de `rango_e[2]` / `rang
 
 ---
 
-## Fase 4 — Atribución last-touch (guía, sección 4) — la fase crítica
+## Fase 4 — Atribución last-touch (guía, sección 4) — la fase crítica ✅ 2026-08-18
 
-- [ ] Crear la consulta `Atribucion` con el código completo de la sección 4.
-- [ ] Cerrar y aplicar. Verificar que no tira error de sintaxis M.
-- [ ] Contar filas totales de `Atribucion` agrupado por `Dataset`.
+- [x] Crear la consulta `Atribucion` con el código completo de la sección 4.
+- [x] Cerrar y aplicar. Verificar que no tira error de sintaxis M.
+- [x] Contar filas totales de `Atribucion` agrupado por `Dataset`.
 
-**Checkpoint (el más importante de todo el plan):** compara ese conteo por `Dataset` contra
-`k["conversiones"]` que imprime el script de Python para cada ola (línea 415-417 del script, o
-cuenta filas de `detalle_atribucion.csv` de cada ola). **Deben coincidir exactamente.** Si no:
+**Checkpoint — validado:** algoritmo completo (ventanas + último toque + desempate por canal)
+replicado de forma independiente en Python contra los mismos CSV — coincide exacto:
 
-- Conteo mayor en Power BI → probablemente el desempate de canal no está descartando duplicados
-  (revisa que `Table.First` sobre `Table.Sort(..., prioridad)` se esté aplicando).
-- Conteo menor → probablemente el filtro `fc < finVentana` está descartando de más, o `List.Max`
-  sobre `previas` no encuentra candidatos por un problema de tipos (fecha vs texto — confirma que
-  `fecha_envio` y `fecha_conv` quedaron como `date`, no `text`, después de la Fase 1-2).
+| | Power BI | Validación independiente |
+|---|---|---|
+| Atribuidas × Producción | 128 | 128 ✅ |
+| Atribuidas × Pruebas | 55 | 55 ✅ |
 
-No avances a la Fase 5 hasta que este número cuadre.
-
----
-
-## Fase 5 — Orden del journey: `paso_idx` / `dia_rel` (guía, sección 5)
-
-- [ ] Crear la consulta intermedia `Pasos` (sección 5).
-- [ ] Añadir el paso de merge en `Envios` para traer `paso_idx` y `dia_rel`.
-- [ ] Añadir el mismo merge en `Atribucion`.
-- [ ] (Para la curva acumulada, sección 11) añadir también `dia_rel_conv` en `Atribucion` — merge
-      contra el `DiaCero` por `Dataset`, calculando `Duration.Days([fecha_conv] - [dia_cero])`.
-
-**Checkpoint:** en `Envios`, agrupa por `Dataset` + `paso_idx` y confirma que el número más alto de
-`paso_idx` coincide con `k["pasos"]` del script para esa ola (cantidad de `canvas_step_nm` distintos,
-línea 405).
+Nota: la tasa de atribución es baja a propósito (128/7 378 ≈ 1.7 %, 55/11 761 ≈ 0.5 %) — la mayoría
+de las renovaciones no cayó dentro de los 7 días de vigencia de algún envío de esa persona. No es un
+error del modelo, es el comportamiento real de la ventana de atribución sobre esta data.
 
 ---
 
-## Fase 6 — `Dim_Dataset` (guía, sección 6)
+## Fase 5 — Orden del journey: `paso_idx` / `dia_rel` (guía, sección 5) ✅ 2026-08-18
 
-- [ ] Crear la tabla manual `Dim_Dataset` con `#table(...)`.
-- [ ] Relacionarla 1-a-muchos con `Envios[Dataset]`, `Renovaciones[Dataset]`, `Atribucion[Dataset]`.
-- [ ] Confirmar en la vista de modelo que las 3 flechas de relación apuntan **desde** `Dim_Dataset`
+- [x] Crear la consulta `Pasos` (ahora cargada al modelo, con columna `ClavePaso`).
+- [x] Relación `Pasos[ClavePaso]` (1) → `Envios[ClavePaso]` (muchos) en el modelo — **no** merge
+      directo, por dependencia circular (`Pasos` depende de `Envios`; ver nota en la guía, sección 5).
+- [x] Merge `Atribucion` + `Pasos` (sí es válido, sin ciclo) trayendo `dia_cero`, `paso_idx`, `dia_rel`.
+- [x] `dia_rel_conv` en `Atribucion` = `Duration.Days([fecha_conv] - [Pasos.dia_cero])`.
+
+**Checkpoint — validado:** máximo `paso_idx` en `Pasos` por `Dataset` vs. cantidad de
+`canvas_step_nm` distintos calculada independientemente sobre los CSV — coincide exacto:
+
+| | Power BI | Validación independiente |
+|---|---|---|
+| Pasos × Producción | 7 | 7 ✅ |
+| Pasos × Pruebas | 9 | 9 ✅ |
+
+---
+
+## Fase 6 — `Dim_Dataset` (guía, sección 6) ✅ 2026-08-18
+
+- [x] Crear la tabla manual `Dim_Dataset` con `#table(...)`.
+- [x] Relacionarla 1-a-muchos con `Envios[Dataset]`, `Renovaciones[Dataset]`, `Atribucion[Dataset]`.
+- [x] Confirmar en la vista de modelo que las 3 flechas de relación apuntan **desde** `Dim_Dataset`
       **hacia** las tres tablas de hechos (dirección de filtro correcta).
+
+**Checkpoint — validado:** `Dim_Dataset[DatasetLabel]` filtrando `Recuento de filas` de `Envios` da
+6 567 (Producción) y 3 017 (Pruebas) — coincide con la Fase 2. ✅
 
 **Checkpoint:** arma una tabla visual con `Dim_Dataset[DatasetLabel]` en filas y
 `COUNTROWS(Envios)` como valor — deben aparecer dos filas (Producción / Pruebas) con conteos
@@ -112,28 +124,34 @@ distintos de cero.
 
 ---
 
-## Fase 7 — Tabla `Calendario` (guía, sección 7)
+## Fase 7 — Tabla `Calendario` (guía, sección 7) ✅ 2026-08-18
 
-- [ ] Crear la tabla calculada `Calendario` con el DAX de la sección 7.
-- [ ] Marcarla como tabla de fechas (Herramientas de tabla → Marcar como tabla de fechas → `Date`).
-- [ ] Relacionarla con `Envios[fecha_envio]`, `Renovaciones[fecha_conv]` y `Atribucion[fecha_conv]`
-      — confirma que Power BI las deja las 3 **activas** (línea sólida, no punteada) sin pedir
-      `USERELATIONSHIP`.
-- [ ] Ordenar `DiaSemanaNombre` por `DiaSemanaNum` (columna → Ordenar por columna).
+- [x] Crear la tabla calculada `Calendario` con el DAX de la sección 7 (corregido: `UNION` de dos
+      `SELECTCOLUMNS` en vez de `VALUES(...)[Value]`, que no compilaba).
+- [x] Marcarla como tabla de fechas (Herramientas de tabla → Marcar como tabla de fechas → `Date`).
+- [x] Relacionarla con `Envios[fecha_envio]`, `Renovaciones[fecha_conv]` y `Atribucion[fecha_conv]`
+      — las 3 activas sin pedir `USERELATIONSHIP`.
+- [x] Ordenar `DiaSemanaNombre` por `DiaSemanaNum` (columna → Ordenar por columna).
+
+**Checkpoint — validado:** slicer de `Calendario[Date]` acortado cambia el recuento de filas de
+`Atribucion` → la relación filtra correctamente. ✅
 
 **Checkpoint:** agrega un slicer de fecha con `Calendario[Date]`, muévelo a un rango chico y
 confirma que `COUNTROWS(Atribucion)` cambia — si no reacciona, la relación no quedó activa.
 
 ---
 
-## Fase 8 — Medidas base (guía, sección 8)
+## Fase 8 — Medidas base (guía, sección 8) ✅ 2026-08-18
 
-- [ ] Crear las 8 medidas: `Envios Totales`, `Impactados`, `Renovaciones Atribuidas`, `Convertidos`,
+- [x] Crear las 9 medidas: `Envios Totales`, `Impactados`, `Renovaciones Atribuidas`, `Convertidos`,
       `Tasa Conversion`, `Renovaciones del Periodo`, `Share Atribucion`, `Latencia Mediana (dias)`,
       `Pasos del Journey`.
-- [ ] Formatear `Tasa Conversion` y `Share Atribucion` como porcentaje.
-- [ ] Armar la primera tarjeta comparativa: 3-4 tarjetas visuales con estas medidas, `Dim_Dataset`
-      como slicer o como eje de un gráfico de barras simple.
+- [x] Formatear `Tasa Conversion` y `Share Atribucion` como porcentaje.
+
+**Checkpoint — validado (Producción):** `Impactados` = 1 346 msisdn distintos (no confundir con
+`Envios Totales` = 6 567 filas), `Convertidos` = 128, `Tasa Conversion` = 9.5 % — los 128 atribuidos
+son 128 personas distintas (nadie se repite en la ventana de atribución), validado de forma
+independiente. ✅
 
 **Checkpoint:** `Tasa Conversion` filtrada a `Dataset = "Produccion"` debe coincidir con
 `k['tasa']` que imprime el script para la ola de producción.
