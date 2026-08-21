@@ -312,13 +312,21 @@ FROM por_external;
 
 
 
+-- ============================================================================
+-- PIPELINE GENERICO DE EXTRACCION BRAZE — ULTIMOS 90 DIAS, UN SOLO QUERY
+-- ============================================================================
+-- Corre esto tal cual, una sola vez, y exporta el resultado completo a
+-- eventos_90d_con_msisdn.csv. Sin filtro de campana, sin CREATE TABLE/VIEW
+-- (no requiere permiso de escritura) — todo son CTEs ("tablas virtuales"
+-- dentro del mismo query), que es justo lo que confirmaste que si puedes usar.
+-- ============================================================================
 
 WITH
 -- Rango de fechas: se recalcula solo, sin editar nada, cada vez que corres
 -- el query — siempre trae los ultimos 90 dias desde HOY.
 rango AS (
-    SELECT date_add('day', -90, current_date) AS desde,
-           current_date                        AS hasta
+    SELECT CAST(date_add('day', -90, current_date) AS VARCHAR) AS desde,
+           CAST(current_date AS VARCHAR)                        AS hasta
 ),
 -- 3 snapshots de perfil dentro del mismo rango de 90 dias (inicio, mitad,
 -- mas reciente) en vez de las 90 fotos diarias completas — evita escanear
