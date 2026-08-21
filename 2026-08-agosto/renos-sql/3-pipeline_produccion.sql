@@ -158,3 +158,264 @@ SELECT
     array_agg(msisdn) FILTER (WHERE rn <= 50)           AS ejemplo_msisdns
 FROM enumerado
 GROUP BY canal; 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- ----------------------------------------------------------------------------
+-- QUERY 1 — Eventos unificados, 5 canales, ultimos 90 dias, sin filtro de
+-- campana (exportar como: eventos_90d.csv)
+-- ----------------------------------------------------------------------------
+-- El filtro de fecha va sobre "dt" (columna de particion en las 5 tablas) con
+-- un valor ya calculado, no una funcion sobre la columna misma — asi Trino
+-- puede saltarse particiones enteras sin leerlas.
+
+WITH rango AS (
+    SELECT date_add('day', -90, current_date) AS desde,
+           current_date                        AS hasta
+)
+SELECT
+    'email'          AS canal,
+    instance_tp, event_tp, date_send_dt, dt,
+    campaign_id, external_user_id,
+    canvas_step_id, canvas_step_nm, canvas_variation_nm,
+    event_id, campaign_type,
+    CAST(NULL AS VARCHAR) AS step_name
+FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_email_aws_detail, rango
+WHERE dt >= rango.desde AND dt < rango.hasta
+UNION ALL
+SELECT
+    'push'           AS canal,
+    instance_tp, event_tp, date_send_dt, dt,
+    campaign_id, external_user_id,
+    canvas_step_id, canvas_step_nm, canvas_variation_nm,
+    event_id, campaign_type,
+    CAST(NULL AS VARCHAR) AS step_name
+FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct, rango
+WHERE dt >= rango.desde AND dt < rango.hasta
+UNION ALL
+SELECT
+    'webhook'        AS canal,
+    instance_tp, event_tp, date_send_dt, dt,
+    campaign_id, external_user_id,
+    canvas_step_id, canvas_step_nm, canvas_variation_nm,
+    event_id, campaign_type,
+    step_name
+FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_webhook_fct, rango
+WHERE dt >= rango.desde AND dt < rango.hasta
+UNION ALL
+SELECT
+    'inapp'          AS canal,
+    instance_tp, event_tp, date_send_dt, dt,
+    campaign_id, external_user_id,
+    canvas_step_id, canvas_step_nm, canvas_variation_nm,
+    event_id, campaign_type,
+    CAST(NULL AS VARCHAR) AS step_name
+FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_inapp_fct, rango
+WHERE dt >= rango.desde AND dt < rango.hasta
+UNION ALL
+SELECT
+    'contentcard'    AS canal,
+    instance_tp, event_tp, date_send_dt, dt,
+    campaign_id, external_user_id,
+    canvas_step_id, canvas_step_nm, canvas_variation_nm,
+    event_id, campaign_type,
+    CAST(NULL AS VARCHAR) AS step_name
+FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_contentcard_fct, rango
+WHERE dt >= rango.desde AND dt < rango.hasta;
+
+
+-- ----------------------------------------------------------------------------
+-- QUERY 2 — Perfil (msisdn por las 2 llaves, con el fallback ya validado)
+-- (exportar como: perfil_90d.csv)
+-- ----------------------------------------------------------------------------
+-- 3 snapshots calculados dinamicamente dentro del mismo rango de 90 dias
+-- (inicio, mitad, mas reciente) en vez de las 90 fotos diarias completas —
+-- evita escanear ~90x el volumen para un dato que casi no cambia dia a dia.
+
+WITH fechas_snapshot AS (
+    SELECT
+        date_add('day', -90, current_date) AS f_inicio,
+        date_add('day', -45, current_date) AS f_medio,
+        date_add('day', -1,  current_date) AS f_reciente
+),
+perfil_base AS (
+    SELECT external_id, braze_tigo_id, msisdn
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct, fechas_snapshot
+    WHERE cntry_cd = 'gt'
+      AND fct_dt IN (
+          CAST(fechas_snapshot.f_inicio AS VARCHAR),
+          CAST(fechas_snapshot.f_medio AS VARCHAR),
+          CAST(fechas_snapshot.f_reciente AS VARCHAR)
+      )
+      AND msisdn IS NOT NULL
+),
+por_braze_tigo AS (
+    SELECT braze_tigo_id, arbitrary(msisdn) AS msisdn
+    FROM perfil_base
+    WHERE braze_tigo_id IS NOT NULL
+    GROUP BY braze_tigo_id
+),
+por_external AS (
+    SELECT external_id, arbitrary(msisdn) AS msisdn
+    FROM perfil_base
+    GROUP BY external_id
+)
+SELECT
+    braze_tigo_id AS user_key,
+    braze_tigo_id,
+    CAST(NULL AS VARCHAR) AS external_id,
+    msisdn
+FROM por_braze_tigo
+UNION ALL
+SELECT
+    external_id AS user_key,
+    CAST(NULL AS VARCHAR) AS braze_tigo_id,
+    external_id,
+    msisdn
+FROM por_external;
+
+
+
+-- Union simple, no join: ya validamos que las dos poblaciones nunca se
+-- cruzan (0% solapamiento), asi que no hay riesgo de duplicar un mismo
+-- usuario al traerlas por separado y apilarlas.
+
+
+-- ----------------------------------------------------------------------------
+-- VALIDACION rapida — correr sobre los resultados ya exportados/descargados,
+-- o como Query 3 y 4 en Trino si prefieres validar antes de exportar
+-- ----------------------------------------------------------------------------
+-- (repite el WITH rango del Query 1 si la corres directo en Trino)
+--
+-- Query 3 — conteo por canal:
+--   SELECT canal, count(*) AS filas, count(DISTINCT external_user_id) AS usuarios
+--   FROM (<pegar aqui el Query 1 completo>)
+--   GROUP BY canal ORDER BY canal;
+--
+-- Query 4 — cobertura de perfil:
+--   SELECT
+--       count(*) FILTER (WHERE braze_tigo_id IS NOT NULL) AS con_braze_tigo_id,
+--       count(*) FILTER (WHERE external_id IS NOT NULL)   AS con_external_id
+--   FROM (<pegar aqui el Query 2 completo>);
+
+
+
+
+
+WITH
+-- Rango de fechas: se recalcula solo, sin editar nada, cada vez que corres
+-- el query — siempre trae los ultimos 90 dias desde HOY.
+rango AS (
+    SELECT date_add('day', -90, current_date) AS desde,
+           current_date                        AS hasta
+),
+-- 3 snapshots de perfil dentro del mismo rango de 90 dias (inicio, mitad,
+-- mas reciente) en vez de las 90 fotos diarias completas — evita escanear
+-- ~90x el volumen para un dato que casi no cambia dia a dia.
+fechas_snapshot AS (
+    SELECT
+        date_add('day', -90, current_date) AS f_inicio,
+        date_add('day', -45, current_date) AS f_medio,
+        date_add('day', -1,  current_date) AS f_reciente
+),
+perfil_base AS (
+    SELECT external_id, braze_tigo_id, msisdn
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct, fechas_snapshot
+    WHERE cntry_cd = 'gt'
+      AND fct_dt IN (
+          CAST(fechas_snapshot.f_inicio AS VARCHAR),
+          CAST(fechas_snapshot.f_medio AS VARCHAR),
+          CAST(fechas_snapshot.f_reciente AS VARCHAR)
+      )
+      AND msisdn IS NOT NULL
+),
+perfil_braze_tigo AS (
+    SELECT braze_tigo_id, arbitrary(msisdn) AS msisdn
+    FROM perfil_base
+    WHERE braze_tigo_id IS NOT NULL
+    GROUP BY braze_tigo_id
+),
+perfil_external AS (
+    SELECT external_id, arbitrary(msisdn) AS msisdn
+    FROM perfil_base
+    GROUP BY external_id
+),
+-- Eventos unificados de los 5 canales, mismas columnas, sin filtro de
+-- campana. El filtro de fecha va sobre "dt" (columna de particion) con un
+-- valor ya calculado, no una funcion sobre la columna misma — asi Trino
+-- puede saltarse particiones enteras sin leerlas.
+eventos AS (
+    SELECT
+        'email' AS canal, instance_tp, event_tp, date_send_dt, dt,
+        campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
+        canvas_variation_nm, event_id, campaign_type,
+        CAST(NULL AS VARCHAR) AS step_name
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_email_aws_detail, rango
+    WHERE dt >= rango.desde AND dt < rango.hasta
+    UNION ALL
+    SELECT
+        'push' AS canal, instance_tp, event_tp, date_send_dt, dt,
+        campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
+        canvas_variation_nm, event_id, campaign_type,
+        CAST(NULL AS VARCHAR) AS step_name
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct, rango
+    WHERE dt >= rango.desde AND dt < rango.hasta
+    UNION ALL
+    SELECT
+        'webhook' AS canal, instance_tp, event_tp, date_send_dt, dt,
+        campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
+        canvas_variation_nm, event_id, campaign_type,
+        step_name
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_webhook_fct, rango
+    WHERE dt >= rango.desde AND dt < rango.hasta
+    UNION ALL
+    SELECT
+        'inapp' AS canal, instance_tp, event_tp, date_send_dt, dt,
+        campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
+        canvas_variation_nm, event_id, campaign_type,
+        CAST(NULL AS VARCHAR) AS step_name
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_inapp_fct, rango
+    WHERE dt >= rango.desde AND dt < rango.hasta
+    UNION ALL
+    SELECT
+        'contentcard' AS canal, instance_tp, event_tp, date_send_dt, dt,
+        campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
+        canvas_variation_nm, event_id, campaign_type,
+        CAST(NULL AS VARCHAR) AS step_name
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_contentcard_fct, rango
+    WHERE dt >= rango.desde AND dt < rango.hasta
+)
+-- Resultado final: cada evento con su msisdn ya resuelto (fallback de
+-- llaves ya validado: braze_tigo_id primero, external_id de respaldo).
+-- No se descartan los que no encuentran msisdn (quedan en NULL) — como es
+-- un pipeline generico de descarga, mejor conservarlos visibles que
+-- perderlos en silencio; filtralos despues segun el analisis que hagas.
+SELECT
+    COALESCE(pbt.msisdn, pe.msisdn) AS msisdn,
+    e.external_user_id AS cuenta_id,
+    e.canal,
+    e.instance_tp,
+    e.event_tp,
+    e.date_send_dt,
+    e.dt,
+    e.campaign_id,
+    e.canvas_step_id,
+    e.canvas_step_nm,
+    e.canvas_variation_nm,
+    e.event_id,
+    e.campaign_type,
+    e.step_name
+FROM eventos e
+LEFT JOIN perfil_braze_tigo pbt ON pbt.braze_tigo_id = e.external_user_id
+LEFT JOIN perfil_external   pe  ON pe.external_id    = e.external_user_id;
