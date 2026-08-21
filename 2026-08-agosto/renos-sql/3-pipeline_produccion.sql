@@ -287,37 +287,6 @@ FROM por_external;
 
 
 
--- Union simple, no join: ya validamos que las dos poblaciones nunca se
--- cruzan (0% solapamiento), asi que no hay riesgo de duplicar un mismo
--- usuario al traerlas por separado y apilarlas.
-
-
--- ----------------------------------------------------------------------------
--- VALIDACION rapida — correr sobre los resultados ya exportados/descargados,
--- o como Query 3 y 4 en Trino si prefieres validar antes de exportar
--- ----------------------------------------------------------------------------
--- (repite el WITH rango del Query 1 si la corres directo en Trino)
---
--- Query 3 — conteo por canal:
---   SELECT canal, count(*) AS filas, count(DISTINCT external_user_id) AS usuarios
---   FROM (<pegar aqui el Query 1 completo>)
---   GROUP BY canal ORDER BY canal;
---
--- Query 4 — cobertura de perfil:
---   SELECT
---       count(*) FILTER (WHERE braze_tigo_id IS NOT NULL) AS con_braze_tigo_id,
---       count(*) FILTER (WHERE external_id IS NOT NULL)   AS con_external_id
---   FROM (<pegar aqui el Query 2 completo>);
-
-
--- ============================================================================
--- PIPELINE GENERICO DE EXTRACCION BRAZE — ULTIMOS 90 DIAS, UN SOLO QUERY
--- ============================================================================
--- Corre esto tal cual, una sola vez, y exporta el resultado completo a
--- eventos_90d_con_msisdn.csv. Sin filtro de campana, sin CREATE TABLE/VIEW
--- (no requiere permiso de escritura) — todo son CTEs ("tablas virtuales"
--- dentro del mismo query), que es justo lo que confirmaste que si puedes usar.
--- ============================================================================
 
 WITH
 -- Rango de fechas: se recalcula solo, sin editar nada, cada vez que corres
@@ -366,7 +335,7 @@ perfil_external AS (
 -- puede saltarse particiones enteras sin leerlas.
 eventos AS (
     SELECT
-        'email' AS canal, instance_tp, event_tp, date_send_dt, dt,
+        'email' AS canal, instance_tp, event_tp, CAST(date_send_dt AS VARCHAR) AS date_send_dt, dt,
         campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
         canvas_variation_nm, event_id, campaign_type,
         CAST(NULL AS VARCHAR) AS step_name
@@ -374,7 +343,7 @@ eventos AS (
     WHERE dt >= rango.desde_str AND dt < rango.hasta_str
     UNION ALL
     SELECT
-        'push' AS canal, instance_tp, event_tp, date_send_dt, CAST(dt AS VARCHAR) AS dt,
+        'push' AS canal, instance_tp, event_tp, CAST(date_send_dt AS VARCHAR) AS date_send_dt, CAST(dt AS VARCHAR) AS dt,
         campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
         canvas_variation_nm, event_id, campaign_type,
         CAST(NULL AS VARCHAR) AS step_name
@@ -382,7 +351,7 @@ eventos AS (
     WHERE dt >= rango.desde_date AND dt < rango.hasta_date
     UNION ALL
     SELECT
-        'webhook' AS canal, instance_tp, event_tp, date_send_dt, CAST(dt AS VARCHAR) AS dt,
+        'webhook' AS canal, instance_tp, event_tp, CAST(date_send_dt AS VARCHAR) AS date_send_dt, CAST(dt AS VARCHAR) AS dt,
         campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
         canvas_variation_nm, event_id, campaign_type,
         step_name
@@ -390,7 +359,7 @@ eventos AS (
     WHERE dt >= rango.desde_date AND dt < rango.hasta_date
     UNION ALL
     SELECT
-        'inapp' AS canal, instance_tp, event_tp, date_send_dt, CAST(dt AS VARCHAR) AS dt,
+        'inapp' AS canal, instance_tp, event_tp, CAST(date_send_dt AS VARCHAR) AS date_send_dt, CAST(dt AS VARCHAR) AS dt,
         campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
         canvas_variation_nm, event_id, campaign_type,
         CAST(NULL AS VARCHAR) AS step_name
@@ -398,7 +367,7 @@ eventos AS (
     WHERE dt >= rango.desde_date AND dt < rango.hasta_date
     UNION ALL
     SELECT
-        'contentcard' AS canal, instance_tp, event_tp, date_send_dt, CAST(dt AS VARCHAR) AS dt,
+        'contentcard' AS canal, instance_tp, event_tp, CAST(date_send_dt AS VARCHAR) AS date_send_dt, CAST(dt AS VARCHAR) AS dt,
         campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
         canvas_variation_nm, event_id, campaign_type,
         CAST(NULL AS VARCHAR) AS step_name
