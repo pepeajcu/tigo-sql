@@ -427,3 +427,6 @@ SELECT
 FROM eventos e
 LEFT JOIN perfil_braze_tigo pbt ON pbt.braze_tigo_id = e.external_user_id
 LEFT JOIN perfil_external   pe  ON pe.external_id    = e.external_user_id;
+
+
+SQL Error [58]: Query failed (#20260821_211812_00751_5z24k): line 58:14: Cannot apply operator: date <= varchar
