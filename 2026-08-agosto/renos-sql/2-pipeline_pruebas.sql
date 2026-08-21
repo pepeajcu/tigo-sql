@@ -518,3 +518,56 @@ SELECT
 FROM webhook w
 LEFT JOIN perfil_external   pe  ON pe.external_id    = w.external_user_id
 LEFT JOIN perfil_braze_tigo pbt ON pbt.braze_tigo_id = w.external_user_id;
+
+
+/* mach fila por fila  */
+
+WITH perfil_external AS (
+    SELECT external_id, arbitrary(msisdn) AS msisdn
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
+    WHERE fct_dt IN ('2026-06-04', '2026-06-12', '2026-07-02')
+      AND cntry_cd = 'gt'
+      AND msisdn IS NOT NULL
+    GROUP BY external_id
+),
+perfil_braze_tigo AS (
+    SELECT braze_tigo_id, arbitrary(msisdn) AS msisdn
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
+    WHERE fct_dt IN ('2026-06-04', '2026-06-12', '2026-07-02')
+      AND cntry_cd = 'gt'
+      AND braze_tigo_id IS NOT NULL
+      AND msisdn IS NOT NULL
+    GROUP BY braze_tigo_id
+),
+envios AS (
+    SELECT DISTINCT external_user_id
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_webhook_fct
+    WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10'
+      AND instance_tp = 'gt'
+      AND trim(lower(step_name)) IN ('sms', 'whatsapp')
+      AND trim(lower(campaign_id)) IN (
+          trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5')),
+          trim(lower('59f07812-1cd1-4a86-997f-192992a83ec1')))
+
+    UNION
+    SELECT DISTINCT external_user_id
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct
+    WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10' AND instance_tp = 'gt'
+      AND trim(lower(campaign_id)) IN (
+          trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5')),
+          trim(lower('59f07812-1cd1-4a86-997f-192992a83ec1')))
+)
+SELECT
+    e.external_user_id,
+    pe.msisdn  AS msisdn_por_external_id,
+    pbt.msisdn AS msisdn_por_braze_tigo_id,
+    CASE
+        WHEN pe.msisdn IS NOT NULL AND pbt.msisdn IS NOT NULL THEN 'AMBAS'
+        WHEN pe.msisdn IS NOT NULL THEN 'SOLO EXTERNAL_ID'
+        WHEN pbt.msisdn IS NOT NULL THEN 'SOLO BRAZE_TIGO_ID'
+        ELSE 'NINGUNA'
+    END AS fuente_match
+FROM envios e
+LEFT JOIN perfil_external   pe  ON pe.external_id    = e.external_user_id
+LEFT JOIN perfil_braze_tigo pbt ON pbt.braze_tigo_id = e.external_user_id
+LIMIT 100;
