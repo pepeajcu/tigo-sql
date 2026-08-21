@@ -310,8 +310,6 @@ FROM por_external;
 --   FROM (<pegar aqui el Query 2 completo>);
 
 
-
-
 -- ============================================================================
 -- PIPELINE GENERICO DE EXTRACCION BRAZE — ULTIMOS 90 DIAS, UN SOLO QUERY
 -- ============================================================================
@@ -325,8 +323,11 @@ WITH
 -- Rango de fechas: se recalcula solo, sin editar nada, cada vez que corres
 -- el query — siempre trae los ultimos 90 dias desde HOY.
 rango AS (
-    SELECT CAST(date_add('day', -90, current_date) AS VARCHAR) AS desde,
-           CAST(current_date AS VARCHAR)                        AS hasta
+    SELECT
+        date_add('day', -90, current_date)            AS desde_date,
+        current_date                                    AS hasta_date,
+        CAST(date_add('day', -90, current_date) AS VARCHAR) AS desde_str,
+        CAST(current_date AS VARCHAR)                        AS hasta_str
 ),
 -- 3 snapshots de perfil dentro del mismo rango de 90 dias (inicio, mitad,
 -- mas reciente) en vez de las 90 fotos diarias completas — evita escanear
@@ -370,39 +371,39 @@ eventos AS (
         canvas_variation_nm, event_id, campaign_type,
         CAST(NULL AS VARCHAR) AS step_name
     FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_email_aws_detail, rango
-    WHERE dt >= rango.desde AND dt < rango.hasta
+    WHERE dt >= rango.desde_str AND dt < rango.hasta_str
     UNION ALL
     SELECT
-        'push' AS canal, instance_tp, event_tp, date_send_dt, dt,
+        'push' AS canal, instance_tp, event_tp, date_send_dt, CAST(dt AS VARCHAR) AS dt,
         campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
         canvas_variation_nm, event_id, campaign_type,
         CAST(NULL AS VARCHAR) AS step_name
     FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct, rango
-    WHERE dt >= rango.desde AND dt < rango.hasta
+    WHERE dt >= rango.desde_date AND dt < rango.hasta_date
     UNION ALL
     SELECT
-        'webhook' AS canal, instance_tp, event_tp, date_send_dt, dt,
+        'webhook' AS canal, instance_tp, event_tp, date_send_dt, CAST(dt AS VARCHAR) AS dt,
         campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
         canvas_variation_nm, event_id, campaign_type,
         step_name
     FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_webhook_fct, rango
-    WHERE dt >= rango.desde AND dt < rango.hasta
+    WHERE dt >= rango.desde_date AND dt < rango.hasta_date
     UNION ALL
     SELECT
-        'inapp' AS canal, instance_tp, event_tp, date_send_dt, dt,
+        'inapp' AS canal, instance_tp, event_tp, date_send_dt, CAST(dt AS VARCHAR) AS dt,
         campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
         canvas_variation_nm, event_id, campaign_type,
         CAST(NULL AS VARCHAR) AS step_name
     FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_inapp_fct, rango
-    WHERE dt >= rango.desde AND dt < rango.hasta
+    WHERE dt >= rango.desde_date AND dt < rango.hasta_date
     UNION ALL
     SELECT
-        'contentcard' AS canal, instance_tp, event_tp, date_send_dt, dt,
+        'contentcard' AS canal, instance_tp, event_tp, date_send_dt, CAST(dt AS VARCHAR) AS dt,
         campaign_id, external_user_id, canvas_step_id, canvas_step_nm,
         canvas_variation_nm, event_id, campaign_type,
         CAST(NULL AS VARCHAR) AS step_name
     FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_contentcard_fct, rango
-    WHERE dt >= rango.desde AND dt < rango.hasta
+    WHERE dt >= rango.desde_date AND dt < rango.hasta_date
 )
 -- Resultado final: cada evento con su msisdn ya resuelto (fallback de
 -- llaves ya validado: braze_tigo_id primero, external_id de respaldo).
@@ -427,6 +428,3 @@ SELECT
 FROM eventos e
 LEFT JOIN perfil_braze_tigo pbt ON pbt.braze_tigo_id = e.external_user_id
 LEFT JOIN perfil_external   pe  ON pe.external_id    = e.external_user_id;
-
-
-SQL Error [58]: Query failed (#20260821_211812_00751_5z24k): line 58:14: Cannot apply operator: date <= varchar
