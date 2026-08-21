@@ -325,3 +325,59 @@ SELECT
     count(*) FILTER (WHERE p.msisdn IS NOT NULL)         AS con_msisdn
 FROM push_ids e
 LEFT JOIN perfil p ON p.braze_tigo_id = e.external_user_id;
+
+
+/*********************************************************************************************/
+
+
+WITH perfil_external AS (
+    SELECT external_id, arbitrary(msisdn) AS msisdn
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
+    WHERE fct_dt IN ('2026-06-04', '2026-06-12', '2026-07-02')
+      AND cntry_cd = 'gt'
+      AND msisdn IS NOT NULL
+    GROUP BY external_id
+),
+perfil_braze_tigo AS (
+    SELECT braze_tigo_id, arbitrary(msisdn) AS msisdn
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_profile_fct
+    WHERE fct_dt IN ('2026-06-04', '2026-06-12', '2026-07-02')
+      AND cntry_cd = 'gt'
+      AND braze_tigo_id IS NOT NULL
+      AND msisdn IS NOT NULL
+    GROUP BY braze_tigo_id
+),
+webhook AS (
+    SELECT lower(step_name) AS canal, external_user_id, date_send_dt AS fecha_envio,
+           campaign_id, canvas_step_nm, canvas_variation_nm
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_webhook_fct
+    WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10'
+      AND instance_tp = 'gt'
+      AND trim(lower(step_name)) IN ('sms', 'whatsapp')
+      AND trim(lower(campaign_id)) IN (
+          trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5')),
+          trim(lower('59f07812-1cd1-4a86-997f-192992a83ec1')))
+),
+push AS (
+    SELECT 'push' AS canal, external_user_id, date_send_dt AS fecha_envio,
+           campaign_id, canvas_step_nm, canvas_variation_nm
+    FROM gt_awsmichqice_glue.hq_anl_prd_engmt_link.braze_chnnl_push_fct
+    WHERE dt >= DATE '2026-06-04' AND dt < DATE '2026-07-10'
+      AND instance_tp = 'gt'
+      AND trim(lower(campaign_id)) IN (
+          trim(lower('0342f305-7e46-4b9a-bff0-4d075093a1f5')),
+          trim(lower('59f07812-1cd1-4a86-997f-192992a83ec1')))
+)
+SELECT
+    pe.msisdn AS msisdn, w.external_user_id AS cuenta_id, w.fecha_envio,
+    w.canal, w.canvas_step_nm, w.canvas_variation_nm, w.campaign_id
+FROM webhook w
+JOIN perfil_external pe ON pe.external_id = w.external_user_id
+
+UNION ALL
+
+SELECT
+    pbt.msisdn AS msisdn, p.external_user_id AS cuenta_id, p.fecha_envio,
+    p.canal, p.canvas_step_nm, p.canvas_variation_nm, p.campaign_id
+FROM push p
+JOIN perfil_braze_tigo pbt ON pbt.braze_tigo_id = p.external_user_id;
